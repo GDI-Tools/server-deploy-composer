@@ -1,0 +1,51 @@
+services:
+  rocketchat:
+    image: rocketchat/rocket.chat:7.9.6
+    container_name: rocketchat
+    restart: unless-stopped
+    ports:
+      - "${ROCKETCHAT_PORT:-8284}:3000"
+    environment:
+      - PORT=3000
+      - ROOT_URL=${ROCKETCHAT_ROOT_URL}
+      - MONGO_URL=mongodb://rocketchat-db:27017/rocketchat?replicaSet=rs0
+      - MONGO_OPLOG_URL=mongodb://rocketchat-db:27017/local?replicaSet=rs0
+      - DEPLOY_METHOD=docker
+      - TZ=${TZ:-UTC}
+    depends_on:
+      - rocketchat-db
+    networks:
+      - rocketchat-network
+
+  rocketchat-db:
+    image: mongo:6.0
+    container_name: rocketchat-db
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - rocketchat-db-data:/data/db
+    networks:
+      - rocketchat-network
+
+  rocketchat-db-init:
+    image: mongo:6.0
+    container_name: rocketchat-db-init
+    restart: "no"
+    depends_on:
+      - rocketchat-db
+    command:
+      [
+        "sh",
+        "-c",
+        "until mongosh --host rocketchat-db:27017 --eval 'db.runCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 2; done; mongosh --host rocketchat-db:27017 --eval 'rs.initiate({_id:\"rs0\", members:[{_id:0, host:\"rocketchat-db:27017\"}]})' || true"
+      ]
+    networks:
+      - rocketchat-network
+
+volumes:
+  rocketchat-db-data:
+    driver: local
+
+networks:
+  rocketchat-network:
+    driver: bridge

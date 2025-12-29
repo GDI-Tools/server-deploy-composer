@@ -1,0 +1,59 @@
+services:
+  nextcloud:
+    image: nextcloud:32.0.3-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    ports:
+      - "${NEXTCLOUD_PORT:-8285}:80"
+    environment:
+      - POSTGRES_HOST=nextcloud-db
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=nextcloud-redis
+      - NEXTCLOUD_TRUSTED_DOMAINS=${NEXTCLOUD_TRUSTED_DOMAINS}
+      - OVERWRITEHOST=${OVERWRITEHOST}
+      - OVERWRITEPROTOCOL=${OVERWRITEPROTOCOL:-https}
+      - OVERWRITECLIURL=${OVERWRITECLIURL}
+      - TZ=${TZ:-UTC}
+    depends_on:
+      - nextcloud-db
+      - nextcloud-redis
+    volumes:
+      - nextcloud-data:/var/www/html
+    networks:
+      - nextcloud-network
+
+  nextcloud-db:
+    image: postgres:16-alpine
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - nextcloud-postgres-data:/var/lib/postgresql/data
+    networks:
+      - nextcloud-network
+
+  nextcloud-redis:
+    image: redis:7-alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    volumes:
+      - nextcloud-redis-data:/data
+    networks:
+      - nextcloud-network
+
+volumes:
+  nextcloud-data:
+    driver: local
+  nextcloud-postgres-data:
+    driver: local
+  nextcloud-redis-data:
+    driver: local
+
+networks:
+  nextcloud-network:
+    driver: bridge

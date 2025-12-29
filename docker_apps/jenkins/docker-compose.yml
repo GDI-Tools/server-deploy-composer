@@ -1,0 +1,24 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:2.543
+    container_name: jenkins
+    restart: unless-stopped
+    ports:
+      - "${JENKINS_PORT:-8283}:8080"
+      - "${JENKINS_AGENT_PORT:-50000}:50000"
+    environment:
+      - JENKINS_URL=${JENKINS_URL}
+      - JENKINS_OPTS=${JENKINS_OPTS:-}
+      - JAVA_OPTS=${JAVA_OPTS:-}
+    volumes:
+      - jenkins-data:/var/jenkins_home
+    networks:
+      - jenkins-network
+
+volumes:
+  jenkins-data:
+    driver: local
+
+networks:
+  jenkins-network:
+    driver: bridge

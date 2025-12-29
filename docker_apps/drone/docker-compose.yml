@@ -1,0 +1,83 @@
+services:
+  drone-server:
+    image: drone/drone:2.26.0
+    container_name: drone-server
+    restart: unless-stopped
+    ports:
+      - "${DRONE_HTTP_PORT:-8080}:80"
+      - "${DRONE_HTTPS_PORT:-8443}:443"
+    volumes:
+      - drone-data:/data
+    environment:
+      # Server settings
+      - DRONE_SERVER_HOST=${DRONE_SERVER_HOST}
+      - DRONE_SERVER_PROTO=${DRONE_SERVER_PROTO:-https}
+      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+
+      # Database settings (SQLite)
+      - DRONE_DATABASE_DRIVER=sqlite3
+      - DRONE_DATABASE_DATASOURCE=/data/database.sqlite
+
+      # GitHub OAuth
+      - DRONE_GITHUB_CLIENT_ID=${DRONE_GITHUB_CLIENT_ID}
+      - DRONE_GITHUB_CLIENT_SECRET=${DRONE_GITHUB_CLIENT_SECRET}
+
+      # Admin user
+      - DRONE_USER_CREATE=username:${DRONE_ADMIN_USERNAME},admin:true
+
+      # Optional settings
+      - DRONE_REGISTRATION_CLOSED=${DRONE_REGISTRATION_CLOSED:-false}
+      - DRONE_LOGS_DEBUG=${DRONE_LOGS_DEBUG:-false}
+      - DRONE_TLS_AUTOCERT=${DRONE_TLS_AUTOCERT:-false}
+    networks:
+      - drone-network
+
+  # ✅ Dedicated Docker daemon for CI (Docker 28.x)
+  # This keeps your HOST Docker on 29.x, while Drone uses Docker 28.x API.
+  docker-dind:
+    image: docker:28.5-dind
+    container_name: drone-dind
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    command: ["--host=tcp://0.0.0.0:2375", "--host=unix:///var/run/docker.sock"]
+    volumes:
+      - drone-dind-data:/var/lib/docker
+    networks:
+      - drone-network
+
+  drone-runner:
+    image: drone/drone-runner-docker:1.8
+    container_name: drone-runner
+    restart: unless-stopped
+    environment:
+      - DRONE_RPC_PROTO=http
+      - DRONE_RPC_HOST=drone-server:80
+      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+
+      - DRONE_RUNNER_CAPACITY=${DRONE_RUNNER_CAPACITY:-2}
+      - DRONE_RUNNER_NAME=${DRONE_RUNNER_NAME:-main-runner}
+
+      # ✅ Tell runner to use DinD daemon instead of host socket
+      - DOCKER_HOST=tcp://docker-dind:2375
+
+      - DRONE_UI_USERNAME=${DRONE_RUNNER_UI_USERNAME:-admin}
+      - DRONE_UI_PASSWORD=${DRONE_RUNNER_UI_PASSWORD}
+    ports:
+      - "${DRONE_RUNNER_PORT:-3000}:3000"
+    depends_on:
+      - drone-server
+      - docker-dind
+    networks:
+      - drone-network
+
+volumes:
+  drone-data:
+    driver: local
+  drone-dind-data:
+    driver: local
+
+networks:
+  drone-network:
+    driver: bridge
