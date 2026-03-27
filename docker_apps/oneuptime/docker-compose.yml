@@ -1,0 +1,94 @@
+services:
+  oneuptime-postgres:
+    image: postgres:16
+    container_name: oneuptime-postgres
+    hostname: oneuptime-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ONEUPTIME_DB_USERNAME}
+      POSTGRES_PASSWORD: ${ONEUPTIME_DB_PASSWORD}
+      POSTGRES_DB: oneuptime
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ONEUPTIME_DB_USERNAME} -d oneuptime"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oneuptime-network
+
+  oneuptime-redis:
+    image: redis:7
+    container_name: oneuptime-redis
+    hostname: oneuptime-redis
+    restart: unless-stopped
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oneuptime-network
+
+  oneuptime-clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: oneuptime-clickhouse
+    hostname: oneuptime-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_USER: ${ONEUPTIME_CLICKHOUSE_USERNAME:-default}
+      CLICKHOUSE_PASSWORD: ${ONEUPTIME_CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: oneuptime
+    volumes:
+      - ./data/clickhouse:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - oneuptime-network
+
+  oneuptime-app:
+    image: oneuptime/oneuptime:latest
+    container_name: oneuptime-app
+    hostname: oneuptime-app
+    restart: unless-stopped
+    depends_on:
+      oneuptime-postgres:
+        condition: service_healthy
+      oneuptime-redis:
+        condition: service_healthy
+      oneuptime-clickhouse:
+        condition: service_healthy
+    environment:
+      PORT: "3210"
+      HOST: ${ONEUPTIME_HOST}
+      DATABASE_HOST: oneuptime-postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USERNAME: ${ONEUPTIME_DB_USERNAME}
+      DATABASE_PASSWORD: ${ONEUPTIME_DB_PASSWORD}
+      DATABASE_NAME: oneuptime
+      REDIS_HOST: oneuptime-redis
+      REDIS_PORT: "6379"
+      CLICKHOUSE_HOST: oneuptime-clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USERNAME: ${ONEUPTIME_CLICKHOUSE_USERNAME:-default}
+      CLICKHOUSE_PASSWORD: ${ONEUPTIME_CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DATABASE: oneuptime
+      ENCRYPTION_SECRET: ${ONEUPTIME_ENCRYPTION_SECRET}
+      ONEUPTIME_SECRET: ${ONEUPTIME_SECRET}
+      DISABLE_SIGNUP: ${ONEUPTIME_DISABLE_SIGNUP:-true}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${ONEUPTIME_APP_PORT:-3210}:3210"
+    networks:
+      - oneuptime-network
+
+networks:
+  oneuptime-network:
+    name: oneuptime-network
+    driver: bridge
