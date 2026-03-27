@@ -15,6 +15,7 @@ include docker_apps/rocketchat/Makefile
 include docker_apps/nextcloud/Makefile
 include docker_apps/linkwarden/Makefile
 include docker_apps/komodo/Makefile
+include docker_apps/oneuptime/Makefile
 
 # Remote server configuration - EDIT THESE IF ENV FILE IS NOT PRESENT
 REMOTE_USER ?= ubuntu
@@ -58,6 +59,8 @@ help: ## Show all available commands
 	@$(MAKE) -s linkwarden-help
 	@echo ""
 	@$(MAKE) -s komodo-help
+	@echo ""
+	@$(MAKE) -s oneuptime-help
 
 push: ## Push docker_apps to remote server
 	@echo "Pushing $(LOCAL_PATH) to $(REMOTE_USER)@$(REMOTE_HOST):$(REMOTE_PATH)"

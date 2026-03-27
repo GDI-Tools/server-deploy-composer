@@ -22,7 +22,8 @@ services:
       komodo.skip:
 
   komodo-core:
-    image: ghcr.io/moghtech/komodo-core:latest
+    image: ghcr.io/moghtech/komodo-core:2
+    init: true
     container_name: komodo-core
     hostname: komodo-core
     restart: unless-stopped
@@ -42,6 +43,7 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - ./data/backups:/backups
+      - ./keys:/config/keys
     ports:
       - "${KOMODO_APP_PORT:-9120}:9120"
     networks:
@@ -50,7 +52,7 @@ services:
       komodo.skip:
 
   komodo-periphery:
-    image: ghcr.io/moghtech/komodo-periphery:latest
+    image: ghcr.io/moghtech/komodo-periphery:2
     container_name: komodo-periphery
     hostname: komodo-periphery
     restart: unless-stopped
